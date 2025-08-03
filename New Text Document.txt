@@ -1,0 +1,180 @@
+https://chatgpt.com/share/688e2631-0890-8000-a9ed-27bae9de77f5
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tribute to Dr. APJ Abdul Kalam</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #d3cce3, #e9e4f0);
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    header {
+      background-color: #343a40;
+      padding: 20px;
+      color: white;
+    }
+
+    .image-container {
+      position: relative;
+      width: 300px;
+      margin: 30px auto;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .image-container:hover {
+      transform: scale(1.03);
+    }
+
+    .image-container img {
+      width: 100%;
+      display: block;
+    }
+
+    .overlay {
+      position: absolute;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      color: #f1f1f1;
+      width: 100%;
+      padding: 15px;
+      transform: translateY(100%);
+      transition: transform 0.4s ease;
+    }
+
+    .image-container:hover .overlay {
+      transform: translateY(0);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-top: 0;
+    }
+
+    .btn-style {
+      display: inline-block;
+      margin: 20px auto;
+      padding: 12px 25px;
+      background: #5e60ce;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 1rem;
+      text-decoration: none;
+      animation: pulse 2s ease-in-out infinite;
+      animation-delay: 1s;
+    }
+
+    .btn-style:hover {
+      background: #3a0ca3;
+    }
+
+.image-container img {
+  width: 100%;
+  display: block;
+  animation: float 5s ease-in-out infinite;
+}
+
+/* New animation */
+@keyframes float {
+  0%   { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.05) translateY(-10px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+    @keyframes pulse {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .info-section {
+      padding: 30px;
+      background-color: #f7f7f7;
+      text-align: left;
+      width: 80%;
+      margin: auto;
+      border-radius: 10px;
+    }
+
+    .info-section p {
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    dl {
+      margin-top: 20px;
+      padding-left: 20px;
+    }
+
+    dt {
+      font-weight: bold;
+      color: #222;
+    }
+
+    dd {
+      margin-bottom: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Tribute to Dr. APJ Abdul Kalam</h1>
+  </header>
+<div class="image-container">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/b/b0/A._P._J._Abdul_Kalam.jpg" alt="Dr APJ Abdul Kalam">
+  <div class="overlay">
+    A visionary scientist and 11th President of India, known as the "Missile Man".
+  </div>
+</div>
+
+
+  <!-- CSS3 Button -->
+  <a href="#info" class="btn-style">Explore More</a>
+
+  <!-- Info Section -->
+  <div id="info" class="info-section">
+    <p>
+      Dr. Avul Pakir Jainulabdeen Abdul Kalam was an aerospace scientist and the 11th President of India from 2002 to 2007. He played a key role in India's civilian space program and military missile development. He was admired for his humility, integrity, and dedication to youth education.
+    </p>
+
+    <h3>Major Achievements</h3>
+    <ul>
+      <li>Key role in India's missile development: Agni & Prithvi</li>
+      <li>Led India's nuclear tests (Pokhran-II)</li>
+      <li>Received Bharat Ratna (1997)</li>
+      <li>Popular author and motivational speaker</li>
+    </ul>
+
+    <h3>Descriptive List</h3>
+    <dl>
+      <dt>Missile Man</dt>
+      <dd>Known for developing India’s missile programs and launch vehicles.</dd>
+
+      <dt>Vision 2020</dt>
+      <dd>Proposed a roadmap to transform India into a developed nation by 2020.</dd>
+
+      <dt>People's President</dt>
+      <dd>Connected deeply with students and youth, earning national love and respect.</dd>
+    </dl>
+  </div>
+
+</body>
+</html>
