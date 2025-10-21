@@ -1,1 +1,340 @@
-jhghjgjhgh
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Xml;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors("AllowAll");
+app.UseHttpsRedirection();
+
+// ===== TRANSFORMATION ENDPOINTS =====
+
+// 1. Transform mCare Patient to CCA Patient
+app.MapPost("/api/transform/patient/mcare-to-cca", 
+    ([FromBody] object mCarePatient) =>
+{
+    try
+    {
+        var mCareData = JObject.Parse(mCarePatient.ToString());
+        
+        var ccaPatientData = new JObject
+        {
+            ["Patient"] = new JObject
+            {
+                ["PatientID"] = mCareData["residentId"],
+                ["ExternalID"] = mCareData["residentId"],
+                ["Demographics"] = new JObject
+                {
+                    ["FirstName"] = mCareData["personalDetails"]?["firstName"],
+                    ["LastName"] = mCareData["personalDetails"]?["lastName"],
+                    ["DOB"] = mCareData["personalDetails"]?["dateOfBirth"],
+                    ["Sex"] = TransformGender(mCareData["personalDetails"]?["gender"]?.ToString()),
+                    ["SSN"] = mCareData["personalDetails"]?["nhsNumber"]
+                },
+                ["ContactInformation"] = new JObject
+                {
+                    ["PrimaryPhone"] = mCareData["contactInfo"]?["primaryPhone"],
+                    ["Email"] = mCareData["contactInfo"]?["email"],
+                    ["Address"] = new JObject
+                    {
+                        ["Street"] = mCareData["contactInfo"]?["address"]?["line1"],
+                        ["City"] = mCareData["contactInfo"]?["address"]?["city"],
+                        ["PostalCode"] = mCareData["contactInfo"]?["address"]?["postcode"],
+                        ["Country"] = mCareData["contactInfo"]?["address"]?["country"]
+                    }
+                },
+                ["EmergencyContacts"] = new JArray
+                {
+                    new JObject
+                    {
+                        ["Name"] = mCareData["emergencyContact"]?["name"],
+                        ["Relationship"] = mCareData["emergencyContact"]?["relationship"],
+                        ["Phone"] = mCareData["emergencyContact"]?["phone"],
+                        ["IsPrimary"] = true
+                    }
+                },
+                ["ClinicalInfo"] = new JObject
+                {
+                    ["AdmissionDate"] = mCareData["admissionDate"],
+                    ["CareLevel"] = TransformCareLevel(mCareData["careLevel"]?.ToString()),
+                    ["MobilityStatus"] = mCareData["mobility"],
+                    ["DietaryRestrictions"] = mCareData["dietaryRequirements"]
+                }
+            }
+        };
+
+        return Results.Ok(new
+        {
+            success = true,
+            transformedData = ccaPatientData,
+            timestamp = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { success = false, error = ex.Message });
+    }
+})
+.WithName("TransformPatientMCareToCCA")
+.WithOpenApi();
+
+// 2. Transform mCare Care Plan to CCA Treatment Plan
+app.MapPost("/api/transform/careplan/mcare-to-cca", 
+    ([FromBody] object mCareCarePlan) =>
+{
+    try
+    {
+        var mCarePlan = JObject.Parse(mCareCarePlan.ToString());
+        
+        var ccaTreatmentPlan = new JObject
+        {
+            ["TreatmentPlan"] = new JObject
+            {
+                ["PlanID"] = mCarePlan["carePlanId"],
+                ["PatientReference"] = mCarePlan["residentId"],
+                ["PlanDate"] = mCarePlan["planDate"],
+                ["ClinicalAssessments"] = new JArray(),
+                ["Prescriptions"] = new JArray(),
+                ["TreatmentGoals"] = new JArray()
+            }
+        };
+
+        // Transform Assessments
+        if (mCarePlan["assessments"] is JArray assessments)
+        {
+            foreach (JObject assessment in assessments)
+            {
+                var ccaAssessment = new JObject
+                {
+                    ["Type"] = assessment["assessmentType"],
+                    ["Value"] = assessment["score"],
+                    ["ClinicalNotes"] = assessment["notes"],
+                    ["AssessmentDate"] = mCarePlan["planDate"]
+                };
+                ((JArray)ccaTreatmentPlan["TreatmentPlan"]["ClinicalAssessments"]).Add(ccaAssessment);
+            }
+        }
+
+        // Transform Medications
+        if (mCarePlan["medications"] is JArray medications)
+        {
+            foreach (JObject med in medications)
+            {
+                var ccaRx = new JObject
+                {
+                    ["PrescriptionID"] = med["medicationId"],
+                    ["Medication"] = new JObject
+                    {
+                        ["DrugName"] = med["drugName"],
+                        ["Strength"] = med["dosage"],
+                        ["Form"] = "Tablet",
+                        ["Route"] = TransformRoute(med["route"]?.ToString())
+                    },
+                    ["Instructions"] = new JObject
+                    {
+                        ["Frequency"] = med["frequency"],
+                        ["Duration"] = "Ongoing"
+                    },
+                    ["Prescriber"] = med["prescribedBy"],
+                    ["DatePrescribed"] = med["startDate"],
+                    ["Status"] = "Active"
+                };
+                ((JArray)ccaTreatmentPlan["TreatmentPlan"]["Prescriptions"]).Add(ccaRx);
+            }
+        }
+
+        // Transform Care Goals
+        if (mCarePlan["careGoals"] is JArray goals)
+        {
+            foreach (JObject goal in goals)
+            {
+                var ccaGoal = new JObject
+                {
+                    ["Objective"] = goal["goal"],
+                    ["TargetDate"] = goal["targetDate"],
+                    ["CurrentStatus"] = goal["status"]
+                };
+                ((JArray)ccaTreatmentPlan["TreatmentPlan"]["TreatmentGoals"]).Add(ccaGoal);
+            }
+        }
+
+        return Results.Ok(new
+        {
+            success = true,
+            transformedData = ccaTreatmentPlan,
+            timestamp = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { success = false, error = ex.Message });
+    }
+})
+.WithName("TransformCarePlanMCareToCCA")
+.WithOpenApi();
+
+// 3. Transform CCA XML to mCare Vitals JSON
+app.MapPost("/api/transform/vitals/cca-to-mcare", 
+    ([FromBody] CcaXmlRequest request) =>
+{
+    try
+    {
+        var doc = new XmlDocument();
+        doc.LoadXml(request.XmlData);
+        string jsonFromXml = JsonConvert.SerializeXmlNode(doc);
+        var ccaData = JObject.Parse(jsonFromXml);
+
+        var mCareVitals = new JObject
+        {
+            ["vitalsRecordId"] = Guid.NewGuid().ToString(),
+            ["residentId"] = ccaData["ClinicalRecord"]?["PatientID"],
+            ["recordedDate"] = ccaData["ClinicalRecord"]?["VisitDate"],
+            ["recordedBy"] = ccaData["ClinicalRecord"]?["Provider"]?["Name"],
+            ["measurements"] = new JObject
+            {
+                ["bloodPressure"] = new JObject
+                {
+                    ["systolic"] = ccaData["ClinicalRecord"]?["VitalSigns"]?["BloodPressure"]?["Systolic"],
+                    ["diastolic"] = ccaData["ClinicalRecord"]?["VitalSigns"]?["BloodPressure"]?["Diastolic"],
+                    ["unit"] = "mmHg"
+                },
+                ["pulse"] = new JObject
+                {
+                    ["rate"] = ccaData["ClinicalRecord"]?["VitalSigns"]?["HeartRate"],
+                    ["unit"] = "bpm"
+                },
+                ["temperature"] = new JObject
+                {
+                    ["value"] = ccaData["ClinicalRecord"]?["VitalSigns"]?["Temperature"],
+                    ["unit"] = "F"
+                },
+                ["weight"] = new JObject
+                {
+                    ["value"] = ccaData["ClinicalRecord"]?["VitalSigns"]?["Weight"],
+                    ["unit"] = "lbs"
+                }
+            },
+            ["clinicalNotes"] = ExtractDiagnoses(ccaData["ClinicalRecord"]?["Diagnoses"])
+        };
+
+        return Results.Ok(new
+        {
+            success = true,
+            transformedData = mCareVitals,
+            timestamp = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { success = false, error = ex.Message });
+    }
+})
+.WithName("TransformVitalsCCAToMCare")
+.WithOpenApi();
+
+// Health check endpoint
+app.MapGet("/api/health", () => Results.Ok(new
+{
+    status = "healthy",
+    service = "Healthcare Data Transformation API",
+    timestamp = DateTime.UtcNow
+}))
+.WithName("HealthCheck")
+.WithOpenApi();
+
+app.Run();
+
+// ===== HELPER METHODS =====
+
+static string TransformGender(string mCareGender)
+{
+    return mCareGender?.ToUpper() switch
+    {
+        "M" => "Male",
+        "F" => "Female",
+        _ => "Other"
+    };
+}
+
+static int TransformCareLevel(string careLevel)
+{
+    return careLevel?.ToUpper() switch
+    {
+        "LOW" => 1,
+        "MEDIUM" => 2,
+        "HIGH" => 3,
+        "CRITICAL" => 4,
+        _ => 0
+    };
+}
+
+static string TransformRoute(string route)
+{
+    return route?.ToLower() switch
+    {
+        "oral" => "PO",
+        "intravenous" => "IV",
+        "intramuscular" => "IM",
+        "subcutaneous" => "SC",
+        "topical" => "TOP",
+        _ => "PO"
+    };
+}
+
+static string ExtractDiagnoses(JToken diagnoses)
+{
+    var diagnosisList = new List<string>();
+    
+    if (diagnoses?["Diagnosis"] is JArray diagArray)
+    {
+        foreach (var diag in diagArray)
+        {
+            string code = diag["Code"]?.ToString() ?? "";
+            string desc = diag["Description"]?.ToString() ?? "";
+            diagnosisList.Add($"{code}: {desc}");
+        }
+    }
+    else if (diagnoses?["Diagnosis"] is JObject diagObj)
+    {
+        string code = diagObj["Code"]?.ToString() ?? "";
+        string desc = diagObj["Description"]?.ToString() ?? "";
+        diagnosisList.Add($"{code}: {desc}");
+    }
+    
+    return string.Join("; ", diagnosisList);
+}
+
+// ===== DTOs =====
+public record CcaXmlRequest(string XmlData);
+
+/*
+ * NuGet Packages Required:
+ * - Newtonsoft.Json
+ * - Swashbuckle.AspNetCore (for Swagger)
+ * 
+ * To run:
+ * dotnet add package Newtonsoft.Json
+ * dotnet add package Swashbuckle.AspNetCore
+ * dotnet run
+ * 
+ * API will be available at: https://localhost:7xxx/swagger
+ */
