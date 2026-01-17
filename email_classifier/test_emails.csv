@@ -1,0 +1,47 @@
+email_text,label
+"Login button not working on Safari on iPhone",frontend
+"UI layout breaks when opening settings page",frontend
+"Dropdown menu not opening in Chrome browser",frontend
+"Text overlapping on profile page",frontend
+"Page freezes when clicking submit button",frontend
+"Modal dialog not centered on small screens",frontend
+"Search autocomplete suggestion list cut off",frontend
+"Images not loading on article page",frontend
+"Font sizes inconsistent across pages",frontend
+"API returning 500 error while creating user",backend
+"Server timeout occurs during login request",backend
+"Database connection error while saving data",backend
+"User profile not updating after POST request",backend
+"Background job fails with KeyError",backend
+"File upload endpoint returns 413 payload too large",backend
+"Pagination returns duplicate items on page 2",backend
+"Webhook receiver crashes on invalid payload",backend
+"Error serializing JSON response causes 500",backend
+"Possible SQL injection in search endpoint",security
+"Password reset link can be reused multiple times",security
+"Cross-site scripting in comment field",security
+"Two-factor authentication codes not validated",security
+"CSRF token missing on form submit",security
+"Sensitive files accessible without auth",security
+"Session cookies not marked Secure/HttpOnly",security
+"Weak password allowed during signup",security
+"Rate limiting not enforced on login endpoint",security
+"Deployment fails due to missing environment variable",devops
+"CI pipeline failing lint step on PRs",devops
+"Docker container crashes with OOM on build",devops
+"High memory usage on worker nodes after deploy",devops
+"Database replica lagging behind primary",devops
+"DNS resolution intermittently fails in staging",devops
+"Automated backup job not creating snapshots",devops
+"Service healthchecks return 502 intermittently",devops
+"Kubernetes pod restarts frequently after update",devops
+"Login button not working on Safari on iPad",user
+"Cannot tap login button with VoiceOver enabled on iPhone",user
+"Password reset email not delivered to a specific user",user
+"User account locked after multiple failed login attempts",user
+"Password reset token can be reused for another account",user
+"User deployment failed due to missing secret credentials",user
+"Automated backup for a user's data failed with permission denied",user
+"Specific user cannot upload profile image, server returns 400",user
+"Login fails only for some users when using corporate VPN",user
+"Account shows incorrect username for a particular user after migration",user
