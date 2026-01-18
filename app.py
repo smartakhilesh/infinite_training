@@ -6,14 +6,14 @@ import pickle
 import os
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
 
 
-# -------------------------
-# Text Cleaning
-# -------------------------
+# -------------------------------------------------
+# Text cleaning
+# -------------------------------------------------
 def clean_text(text):
     text = text.lower()
     text = re.sub(r"http\S+|www\S+", "", text)
@@ -23,26 +23,27 @@ def clean_text(text):
     return text
 
 
-# -------------------------
-# Streamlit Config
-# -------------------------
+# -------------------------------------------------
+# Streamlit config
+# -------------------------------------------------
 st.set_page_config(page_title="Email Classifier", layout="centered")
 st.title("📧 Email Classifier")
-st.write("Real-world ML email classification with calibrated confidence")
+st.write("Real-world text classification using LinearSVC with calibrated confidence")
 
 
-# -------------------------
-# Load / Train Model
-# -------------------------
+# -------------------------------------------------
+# Train / Load model
+# -------------------------------------------------
 @st.cache_resource
 def get_model():
     model_path = "email_model.pkl"
 
+    # Load model if already trained
     if os.path.exists(model_path):
         with open(model_path, "rb") as f:
             return pickle.load(f)
 
-    # Load data
+    # Load dataset
     df = None
     for fname in ("emails.csv", "test_emails.csv"):
         try:
@@ -52,11 +53,11 @@ def get_model():
             pass
 
     if df is None:
-        st.error("Training data not found")
+        st.error("❌ Training data not found")
         return None
 
     if "email_text" not in df.columns or "label" not in df.columns:
-        st.error("CSV must contain 'email_text' and 'label' columns")
+        st.error("❌ CSV must contain 'email_text' and 'label' columns")
         return None
 
     # Clean text
@@ -65,12 +66,12 @@ def get_model():
     X = df["email_text"]
     y = df["label"]
 
-    # Base classifier
-    base_clf = LogisticRegression(max_iter=1000)
+    # Base classifier (BEST for text)
+    base_svc = LinearSVC()
 
-    # Calibrated classifier (REAL confidence)
+    # Calibrate probabilities (REQUIRED)
     clf = CalibratedClassifierCV(
-        base_estimator=base_clf,
+        estimator=base_svc,   # NEW sklearn syntax
         method="sigmoid",
         cv=5
     )
@@ -97,12 +98,12 @@ def get_model():
 model = get_model()
 
 
-# -------------------------
+# -------------------------------------------------
 # Prediction UI
-# -------------------------
+# -------------------------------------------------
 if model:
     st.write("---")
-    st.subheader("Enter text to classify")
+    st.subheader("Enter email text")
 
     email_text = st.text_area(
         "Email text",
@@ -137,9 +138,9 @@ if model:
             st.warning("Please enter some text")
 
 
-    # -------------------------
+    # -------------------------------------------------
     # Example
-    # -------------------------
+    # -------------------------------------------------
     st.write("---")
     st.subheader("💡 Example")
     if st.button("Classify: Login button not working on Safari on iPhone"):
