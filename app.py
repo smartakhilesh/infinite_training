@@ -4,113 +4,151 @@ import re
 import string
 import pickle
 import os
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 
-# Text cleaning function
+
+# -------------------------
+# Text Cleaning
+# -------------------------
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r'http\S+|www\S+', '', text)
-    text = re.sub(r'\S+@\S+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"http\S+|www\S+", "", text)
+    text = re.sub(r"\S+@\S+", "", text)
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
-# Title and description
+
+# -------------------------
+# Streamlit Config
+# -------------------------
 st.set_page_config(page_title="Email Classifier", layout="centered")
 st.title("📧 Email Classifier")
-st.write("Classify emails into categories using machine learning")
+st.write("Real-world ML email classification with calibrated confidence")
 
-# Train or load model
+
+# -------------------------
+# Load / Train Model
+# -------------------------
 @st.cache_resource
 def get_model():
     model_path = "email_model.pkl"
-    
-    # Load existing model if available
+
     if os.path.exists(model_path):
         with open(model_path, "rb") as f:
             return pickle.load(f)
-    
-    # Otherwise train new model
+
+    # Load data
     df = None
     for fname in ("emails.csv", "test_emails.csv"):
         try:
             df = pd.read_csv(fname)
-            st.success(f"Loaded {fname}")
             break
         except FileNotFoundError:
-            df = None
-    
+            pass
+
     if df is None:
-        st.error("Could not find emails.csv or test_emails.csv")
+        st.error("Training data not found")
         return None
-    
-    # Handle CSV parsing
+
     if "email_text" not in df.columns or "label" not in df.columns:
-        if df.shape[1] == 1:
-            raw = pd.read_csv(fname, header=None, dtype=str, skip_blank_lines=True)[0].astype(str)
-            raw = raw.str.strip().str.strip('"').str.strip("'")
-            if raw.size and raw.iloc[0].lower().startswith('email_text'):
-                raw = raw.iloc[1:]
-            parsed = raw.str.rsplit(',', n=1, expand=True)
-            parsed.columns = ['email_text', 'label']
-            df = parsed
-        else:
-            st.error("CSV must contain 'email_text' and 'label' columns.")
-            return None
-    
+        st.error("CSV must contain 'email_text' and 'label' columns")
+        return None
+
     # Clean text
     df["email_text"] = df["email_text"].astype(str).apply(clean_text)
+
     X = df["email_text"]
     y = df["label"]
-    
-    # Train model
+
+    # Base classifier
+    base_clf = LogisticRegression(max_iter=1000)
+
+    # Calibrated classifier (REAL confidence)
+    clf = CalibratedClassifierCV(
+        base_estimator=base_clf,
+        method="sigmoid",
+        cv=5
+    )
+
     model = Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 2))),
-        ("clf", LogisticRegression(max_iter=1000))
+        ("tfidf", TfidfVectorizer(
+            ngram_range=(1, 2),
+            min_df=2,
+            max_df=0.9,
+            sublinear_tf=True
+        )),
+        ("clf", clf)
     ])
-    
+
     model.fit(X, y)
-    st.success("✅ Model trained successfully!")
-    
-    # Save model
+
     with open(model_path, "wb") as f:
         pickle.dump(model, f)
-    
+
+    st.success("✅ Model trained successfully")
     return model
 
-# Get the model
+
 model = get_model()
 
+
+# -------------------------
+# Prediction UI
+# -------------------------
 if model:
-    # User input
     st.write("---")
-    st.subheader("Enter an email to classify:")
-    
-    email_text = st.text_area("Email text:", height=150, placeholder="Paste your email here...")
-    
+    st.subheader("Enter text to classify")
+
+    email_text = st.text_area(
+        "Email text",
+        height=150,
+        placeholder="Paste your email here..."
+    )
+
     if st.button("Classify Email", type="primary"):
         if email_text.strip():
-            cleaned_text = clean_text(email_text)
-            prediction = model.predict([cleaned_text])[0]
-            confidence = model.predict_proba([cleaned_text]).max()
-            
+            cleaned = clean_text(email_text)
+
+            probs = model.predict_proba([cleaned])[0]
+            labels = model.classes_
+
+            best_idx = probs.argmax()
+            prediction = labels[best_idx]
+            confidence = probs[best_idx]
+
             st.write("---")
-            st.subheader("📊 Result:")
+            st.subheader("📊 Result")
+
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Category", prediction)
             with col2:
                 st.metric("Confidence", f"{confidence:.1%}")
+
+            if confidence < 0.4:
+                st.warning("⚠️ Low confidence prediction")
+
         else:
-            st.warning("Please enter some email text to classify.")
-    
-    # Example section
+            st.warning("Please enter some text")
+
+
+    # -------------------------
+    # Example
+    # -------------------------
     st.write("---")
-    st.subheader("💡 Try an example:")
-    if st.button("Classify 'Special offer - 50% off!'"):
-        example = clean_text("Special offer - 50% off!")
-        prediction = model.predict([example])[0]
-        confidence = model.predict_proba([example]).max()
-        st.success(f"**Category:** {prediction} | **Confidence:** {confidence:.1%}")
+    st.subheader("💡 Example")
+    if st.button("Classify: Login button not working on Safari on iPhone"):
+        example = clean_text("Login button not working on Safari on iPhone")
+
+        probs = model.predict_proba([example])[0]
+        labels = model.classes_
+
+        idx = probs.argmax()
+        st.success(
+            f"**Category:** {labels[idx]} | **Confidence:** {probs[idx]:.1%}"
+        )
