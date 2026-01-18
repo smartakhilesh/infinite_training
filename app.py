@@ -24,21 +24,21 @@ def clean_text(text):
 
 
 # -------------------------------------------------
-# Streamlit config
+# Streamlit UI
 # -------------------------------------------------
 st.set_page_config(page_title="Email Classifier", layout="centered")
 st.title("📧 Email Classifier")
-st.write("Real-world text classification using LinearSVC with calibrated confidence")
+st.write("LinearSVC + calibrated confidence (industry standard for text)")
 
 
 # -------------------------------------------------
-# Train / Load model
+# Train / Load Model
 # -------------------------------------------------
 @st.cache_resource
-def get_model():
+def load_model():
     model_path = "email_model.pkl"
 
-    # Load model if already trained
+    # Load cached model
     if os.path.exists(model_path):
         with open(model_path, "rb") as f:
             return pickle.load(f)
@@ -53,25 +53,24 @@ def get_model():
             pass
 
     if df is None:
-        st.error("❌ Training data not found")
+        st.error("❌ Training CSV not found")
         return None
 
-    if "email_text" not in df.columns or "label" not in df.columns:
-        st.error("❌ CSV must contain 'email_text' and 'label' columns")
+    if not {"email_text", "label"}.issubset(df.columns):
+        st.error("❌ CSV must contain 'email_text' and 'label'")
         return None
 
-    # Clean text
     df["email_text"] = df["email_text"].astype(str).apply(clean_text)
 
     X = df["email_text"]
     y = df["label"]
 
-    # Base classifier (BEST for text)
+    # Base classifier
     base_svc = LinearSVC()
 
-    # Calibrate probabilities (REQUIRED)
+    # Calibrated classifier
     clf = CalibratedClassifierCV(
-        estimator=base_svc,   # NEW sklearn syntax
+        estimator=base_svc,
         method="sigmoid",
         cv=5
     )
@@ -95,7 +94,7 @@ def get_model():
     return model
 
 
-model = get_model()
+model = load_model()
 
 
 # -------------------------------------------------
@@ -103,24 +102,22 @@ model = get_model()
 # -------------------------------------------------
 if model:
     st.write("---")
-    st.subheader("Enter email text")
-
-    email_text = st.text_area(
-        "Email text",
+    text = st.text_area(
+        "Enter email text",
         height=150,
-        placeholder="Paste your email here..."
+        placeholder="Paste email here..."
     )
 
-    if st.button("Classify Email", type="primary"):
-        if email_text.strip():
-            cleaned = clean_text(email_text)
+    if st.button("Classify", type="primary"):
+        if text.strip():
+            cleaned = clean_text(text)
 
             probs = model.predict_proba([cleaned])[0]
             labels = model.classes_
 
-            best_idx = probs.argmax()
-            prediction = labels[best_idx]
-            confidence = probs[best_idx]
+            idx = probs.argmax()
+            prediction = labels[idx]
+            confidence = probs[idx]
 
             st.write("---")
             st.subheader("📊 Result")
@@ -133,23 +130,20 @@ if model:
 
             if confidence < 0.4:
                 st.warning("⚠️ Low confidence prediction")
-
         else:
-            st.warning("Please enter some text")
+            st.warning("Please enter text")
 
 
-    # -------------------------------------------------
-    # Example
-    # -------------------------------------------------
-    st.write("---")
-    st.subheader("💡 Example")
-    if st.button("Classify: Login button not working on Safari on iPhone"):
-        example = clean_text("Login button not working on Safari on iPhone")
+# -------------------------------------------------
+# Example
+# -------------------------------------------------
+st.write("---")
+if st.button("Example: Login button not working on Safari on iPhone"):
+    sample = clean_text("Login button not working on Safari on iPhone")
+    probs = model.predict_proba([sample])[0]
+    labels = model.classes_
 
-        probs = model.predict_proba([example])[0]
-        labels = model.classes_
-
-        idx = probs.argmax()
-        st.success(
-            f"**Category:** {labels[idx]} | **Confidence:** {probs[idx]:.1%}"
-        )
+    idx = probs.argmax()
+    st.success(
+        f"**Category:** {labels[idx]} | **Confidence:** {probs[idx]:.1%}"
+    )
